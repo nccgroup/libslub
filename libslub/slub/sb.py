@@ -174,7 +174,10 @@ class sb:
             return arch.name()
 
         arch_str = gdb.execute("show architecture", to_string=True).strip()
-        if "The target architecture is set automatically (currently " in arch_str:
+        if (
+            "The target architecture is set automatically (currently " in arch_str
+            or 'The target architecture is set to "auto" (currently' in arch_str
+        ):
             # architecture can be auto detected
             arch_str = arch_str.split("(currently ", 1)[1]
             arch_str = arch_str.split(")", 1)[0]
