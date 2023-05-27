@@ -6,27 +6,35 @@ import gdb
 from enum import Enum
 
 import libslub.frontend.printutils as pu
+
 importlib.reload(pu)
 import libslub.frontend.helpers as h
+
 importlib.reload(h)
 import libslub.frontend.helpers2 as h2
+
 importlib.reload(h2)
 import libslub.frontend.breakpoints.gdb.breakpoints as breakpoints
+
 importlib.reload(breakpoints)
 # XXX - may be want to move the sbslabdb stuff in the sbcache command so sb.py does not rely on sbslabdb.py
 import libslub.frontend.commands.gdb.sbslabdb as sbslabdb
+
 importlib.reload(sbslabdb)
 import libslub.slub.cache as c
+
 importlib.reload(c)
 
 log = logging.getLogger("libslub")
 log.trace("sb.py")
 
+
 class SlabType(Enum):
     MAIN_SLAB = 0
     PARTIAL_SLAB = 1
-    NODE_SLAB = 2 # partial slab in node
-    FULL_SLAB = 3 # full slab in node
+    NODE_SLAB = 2  # partial slab in node
+    FULL_SLAB = 3  # full slab in node
+
 
 # XXX - some methods in this helper class could be changed to fetch information from the cache instead of fetching it from
 # memory again
@@ -36,7 +44,24 @@ class sb:
     TYPE_CODE_HAS_FIELDS = [gdb.TYPE_CODE_STRUCT, gdb.TYPE_CODE_UNION]
 
     # XXX - move to sblist.py?
-    kmalloc_caches = ["kmalloc-%s" % n for n in ["8", "16", "32", "64", "96", "128", "192", "256", "512", "1k", "2k", "4k", "8k"]]
+    kmalloc_caches = [
+        "kmalloc-%s" % n
+        for n in [
+            "8",
+            "16",
+            "32",
+            "64",
+            "96",
+            "128",
+            "192",
+            "256",
+            "512",
+            "1k",
+            "2k",
+            "4k",
+            "8k",
+        ]
+    ]
 
     FLAGS = {
         0x00000100: "SLAB_DEBUG_FREE",
@@ -69,7 +94,7 @@ class sb:
         self.SIZE_SZ = SIZE_SZ
         self.dbg = debugger
         self.breakpoints_enabled = breakpoints_enabled
-        self.node_num = self._get_node_num() # number of NUMA node
+        self.node_num = self._get_node_num()  # number of NUMA node
         self.arch = self.get_arch()
         self._check_slub()
 
@@ -82,10 +107,10 @@ class sb:
 
         # Defines if the breakpoints used for tracking should be hidden to the user
         # as used for "internal" in https://sourceware.org/gdb/onlinedocs/gdb/Breakpoints-In-Python.html
-        self.bps_hidden = True # set to False for debugging only
+        self.bps_hidden = True  # set to False for debugging only
 
         # List of cache names (e.g. "kmalloc-1k") to track object allocations/frees
-        # for logging purpose or for breaking in the debugger 
+        # for logging purpose or for breaking in the debugger
         self.trace_caches = []
         self.break_caches = []
         # List of cache names (e.g. "kmalloc-1k") to track slab allocations/frees so
@@ -188,15 +213,15 @@ class sb:
         @return: iterator returning the gdb.Type casted objects found at the different elements
                  in the linked list pointed by head
         """
-        
-        void_p = gdb.lookup_type("void").pointer() # type represents a void*
+
+        void_p = gdb.lookup_type("void").pointer()  # type represents a void*
         offset = sb.get_field_bitpos(type, member) // 8
 
         pos = head["next"].dereference()
         while pos.address != head.address:
             entry = gdb.Value(pos.address.cast(void_p) - offset)
-            #print(entry)
-            #print(entry.cast(type.pointer()).dereference())
+            # print(entry)
+            # print(entry.cast(type.pointer()).dereference())
             # print("Found list entry: 0x%x" % entry)
             # Cast the gdb.Value address to the right type and return that as a dictionary
             yield entry.cast(type.pointer()).dereference()
@@ -218,12 +243,12 @@ class sb:
         # struct kmem_cache {: https://elixir.bootlin.com/linux/v5.15/source/include/linux/slub_def.h#L90
         # lookup_type(), see https://sourceware.org/gdb/onlinedocs/gdb/Types-In-Python.html
         kmem_cache_type = gdb.lookup_type("struct kmem_cache")
-        
+
         # The head of the list for all slab caches on the system (e.g. "kmalloc-64", etc.)
         # https://elixir.bootlin.com/linux/v5.15/source/mm/slab.h#L72
         # lookup_global_symbol(), see https://sourceware.org/gdb/onlinedocs/gdb/Symbols-In-Python.html
         slab_caches = gdb.lookup_global_symbol("slab_caches").value()
-        
+
         return sb.for_each_entry(kmem_cache_type, slab_caches, "list")
 
     @staticmethod
@@ -304,7 +329,7 @@ class sb:
         @param region_start: start address of the memory region holding the objects/chunks for that slab
         @return: iterator returns each object/chunk address in the slab memory region
         """
-        
+
         objects = int(slab["objects"]) & sb.UNSIGNED_INT
         size = int(slab_cache["size"])
 
@@ -314,7 +339,7 @@ class sb:
     @staticmethod
     def walk_freelist(slab_cache, freelist):
         """Iterator return each object address in the slab's free list
-        
+
         @param slab_cache: slab cache associated with a given slab. The reason we pas it is because it contains
                 offsets and random values used to find the next element in the freelist
         @param freelist: address of the head of the freelist
@@ -342,13 +367,15 @@ class sb:
         NOTE: The gdb.Value represents a structure and is a simple dictionary
         see https://sourceware.org/gdb/onlinedocs/gdb/Values-From-Inferior.html
         """
-        
-        void_p = gdb.lookup_type("void").pointer() # type represents a void*
-        kmem_cache_cpu = gdb.lookup_type("struct kmem_cache_cpu").pointer() # type represents a kmem_cache_cpu*
-        
+
+        void_p = gdb.lookup_type("void").pointer()  # type represents a void*
+        kmem_cache_cpu = gdb.lookup_type(
+            "struct kmem_cache_cpu"
+        ).pointer()  # type represents a kmem_cache_cpu*
+
         # selected_thread(), see: https://sourceware.org/gdb/onlinedocs/gdb/Threads-In-Python.html
         current_cpu = gdb.selected_thread().num - 1
-        
+
         cpu_offset = self.per_cpu_offset[current_cpu]
         cpu_slab = gdb.Value(slab_cache["cpu_slab"].cast(void_p) + cpu_offset)
         return cpu_slab.cast(kmem_cache_cpu).dereference()
@@ -357,17 +384,19 @@ class sb:
     def get_all_slab_cache_cpus(self, slab_cache):
         """
         See https://elixir.bootlin.com/linux/v5.15/source/include/linux/slub_def.h#L91
-        
+
         @return a list of all the gdb.Value representing all the kmem_cache_cpu for that slab cache
         i.e. representing the different kmem_cache->cpu_slab
 
         NOTE: The gdb.Value represents a structure and is a simple dictionary
         see https://sourceware.org/gdb/onlinedocs/gdb/Values-From-Inferior.html
         """
-        
-        void_p = gdb.lookup_type("void").pointer() # type represents a void*
-        kmem_cache_cpu = gdb.lookup_type("struct kmem_cache_cpu").pointer() # type represents a kmem_cache_cpu*
-        
+
+        void_p = gdb.lookup_type("void").pointer()  # type represents a void*
+        kmem_cache_cpu = gdb.lookup_type(
+            "struct kmem_cache_cpu"
+        ).pointer()  # type represents a kmem_cache_cpu*
+
         offset = slab_cache["cpu_slab"]
         result = []
         for cpu_idx in range(self.cpu_num):
@@ -406,20 +435,22 @@ class sb:
         for a given slab cache
 
         @slab_cache_name: the slab cache name we want the full slabs of (e.g. "kmalloc-1k")
-        @return: Yield all the gdb.Value for the slab caches that are full (i.e. dictionaries 
+        @return: Yield all the gdb.Value for the slab caches that are full (i.e. dictionaries
                  representing the "struct page*" type)
         """
 
         # We rely on breakpoints to keep track of allocations/frees of slabs,
         # and keep them inside of slabs_list. This lets us view full slabs that
-        # would otherwise not be accessible. 
+        # would otherwise not be accessible.
         if slab_cache_name in self.watch_caches:
             yield from sb.full_slab_from_list(self.slabs_list, slab_cache_name)
 
         # Alternatively, we rely on the sbslabdb command being used by us to track certain slabs
         # associated with certain chunks address we want to track the slabs of
         if slab_cache_name in sbslabdb.slab_db.keys():
-            yield from sb.full_slab_from_list(sbslabdb.slab_db[slab_cache_name].keys(), slab_cache_name)
+            yield from sb.full_slab_from_list(
+                sbslabdb.slab_db[slab_cache_name].keys(), slab_cache_name
+            )
 
     @staticmethod
     def full_slab_from_list(slabs_list, slab_cache_name):
@@ -428,7 +459,7 @@ class sb:
 
         @slabs_list: the list of struct page* addresses for certain slabs we tracked previously
         @slab_cache_name: the slab cache name we want the full slabs of (e.g. "kmalloc-1k")
-        @return: Yield all the gdb.Value for the slab caches that are full (i.e. dictionaries 
+        @return: Yield all the gdb.Value for the slab caches that are full (i.e. dictionaries
                  representing the "struct page*" type)
 
         We make sure that each slab in the
@@ -440,8 +471,9 @@ class sb:
         for addr in slabs_list:
             slab = gdb.Value(addr).cast(page_type)
             slab_cache = slab["slab_cache"]
-            if (int(slab_cache) != 0x0 and
-                slab_cache["name"].string() == slab_cache_name
+            if (
+                int(slab_cache) != 0x0
+                and slab_cache["name"].string() == slab_cache_name
                 and int(slab["frozen"]) == 0
                 and not slab["freelist"]
             ):
@@ -476,7 +508,7 @@ class sb:
     def get_slabs(self, slab_cache):
         """Collect a full list of all the slabs associated with a slab cache"""
 
-        pages = [] # these are actual "struct page*" (gdb.Value) representing a slab
+        pages = []  # these are actual "struct page*" (gdb.Value) representing a slab
 
         cpu_cache_list = self.get_all_slab_cache_cpus(slab_cache)
 
@@ -504,16 +536,18 @@ class sb:
         if fulls:
             for slab in fulls:
                 pages.append(slab)
-        
+
         return pages
 
     def get_slab_cache_memory_pages(self, slab_cache):
         """Collect a full list of all memory pages holding chunks associated with a slab cache
 
         Similar to get_slab_cache_memory_pages_ranges() but returning start addresses"""
-        
-        pages = self.get_slabs(slab_cache) # these are actual "struct page*" (gdb.Value) representing a slab
-        page_addrs = [] # these are memory pages ranges holding chunks
+
+        pages = self.get_slabs(
+            slab_cache
+        )  # these are actual "struct page*" (gdb.Value) representing a slab
+        page_addrs = []  # these are memory pages ranges holding chunks
 
         for page in pages:
             address = int(page.address) & sb.UNSIGNED_LONG
@@ -523,15 +557,17 @@ class sb:
 
     def get_slab_cache_memory_pages_ranges(self, name=None, dict_enabled=False):
         """Collect a full list of all memory pages ranges holding chunks associated with one or several slab caches
-        
+
         @param name: slab cache name if known (optional)
 
         Similar to get_slab_cache_memory_pages() but returning ranges"""
 
         if dict_enabled is True:
-            page_addrs = {} # key = page* address, and value = array for memory pages ranges holding chunks
+            page_addrs = (
+                {}
+            )  # key = page* address, and value = array for memory pages ranges holding chunks
         else:
-            page_addrs = [] # these are memory pages ranges holding chunks
+            page_addrs = []  # these are memory pages ranges holding chunks
 
         if not name:
             slab_caches = sb.iter_slab_caches()
@@ -543,7 +579,9 @@ class sb:
             slab_caches = [slab_cache]
 
         for slab_cache in slab_caches:
-            pages = self.get_slabs(slab_cache) # these are actual "struct page*" (gdb.Value) representing a slab
+            pages = self.get_slabs(
+                slab_cache
+            )  # these are actual "struct page*" (gdb.Value) representing a slab
 
             for page in pages:
                 objects = int(page["objects"]) & sb.UNSIGNED_INT
@@ -552,7 +590,7 @@ class sb:
                 page_addr = self.page_addr(address)
                 page_end = page_addr + objects * size
                 if dict_enabled is True:
-                    page_addrs[address] = ((page_addr, page_end))
+                    page_addrs[address] = (page_addr, page_end)
                 else:
                     page_addrs.append((page_addr, page_end))
 
@@ -560,7 +598,7 @@ class sb:
 
     def get_slab_address(self, chunk_addr, name=None):
         """Get the slab address (struct page*) holding a given chunk address
-        
+
         @param chunk_addr: a chunk address we are looking for
         @param name: slab cache name if known (optional)
         @return the slab address (struct page*) holding that chunk"""
@@ -575,7 +613,9 @@ class sb:
             slab_caches = [slab_cache]
 
         for slab_cache in slab_caches:
-            pages = self.get_slabs(slab_cache) # these are actual "struct page*" (gdb.Value) representing a slab
+            pages = self.get_slabs(
+                slab_cache
+            )  # these are actual "struct page*" (gdb.Value) representing a slab
 
             for page in pages:
                 objects = int(page["objects"]) & sb.UNSIGNED_INT
