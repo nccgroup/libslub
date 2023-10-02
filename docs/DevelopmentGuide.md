@@ -34,9 +34,9 @@ Some terms can be very confusing when talking about things related to slab, SLAB
 
 The "slab" can refer to many things:
 
-* It is common to talk about the "Slab" allocator as the high level Linux kernel allocator interface that can be implemented by the "SLOB", "SLAB" or "SLUB" implementation. 
+* It is common to talk about the "Slab" allocator as the high level Linux kernel allocator interface that can be implemented by the "SLOB", "SLAB" or "SLUB" implementation.
     * "SLOB" is optimized for memory space but is slow, so is generally used in embedded systems.
-    * "SLAB" is optimized for speed but takes a lot of memory space due to the way it tracks things. 
+    * "SLAB" is optimized for speed but takes a lot of memory space due to the way it tracks things.
     * "SLUB" is the default Linux kernel allocator nowadays and tried to solve "SLAB" problems by reducing how things are tracked in the kernel.
 * It is common to say that kernel allocations happen on a given "slab cache". This means they are allocated on the "kmalloc-1k", "kmalloc-64", "TCPv6", etc. (as shown by `cat /proc/slabinfo`). However, we also generally say that a "slab cache" contains several "slabs" associated with various CPU cores. Generally what we mean by that is that the "slab cache" (`struct kmem_cache`) has associated "slab cache per cpu core" (`struct kmem_cache_cpu`), and each of these "slab cache per cpu core" has a "main slab" (aka "current slab") it uses for allocating new objects. And the "slab cache per cpu core" also has "partial slab(s)" that are not currently used for new allocations but could be used if the "main slab" becomes full and no objects can be allocated from it.
 * There is also the concept of "full slabs" which are slabs that contains allocated objects entirely. These are not associated with any CPU but they can become associated with a given CPU once one object from them is freed (so they are not full slabs anymore)
@@ -63,7 +63,7 @@ We need to use `importlib.reload()` for all imported sub modules, hence we never
 # SLUB internals
 
 * https://lwn.net/Articles/229984/ and https://lwn.net/Articles/229096/
-* https://www.youtube.com/watch?v=pFi-JKgoX-I 
+* https://www.youtube.com/watch?v=pFi-JKgoX-I
     * from 28 min
     * but doesn't mention per cpu partial lists
 * https://events.static.linuxfound.org/images/stories/pdf/klf2012_kim.pdf

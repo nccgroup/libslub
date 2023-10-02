@@ -1,29 +1,12 @@
-import struct
-import sys
 import logging
-import importlib
-import gdb
 from enum import Enum
 
-import libslub.frontend.printutils as pu
+import gdb
 
-importlib.reload(pu)
-import libslub.frontend.helpers as h
-
-importlib.reload(h)
-import libslub.frontend.helpers2 as h2
-
-importlib.reload(h2)
+import libslub.commands.db as cmd_db
 import libslub.frontend.breakpoints.gdb.breakpoints as breakpoints
-
-importlib.reload(breakpoints)
-# XXX - may be want to move the sbslabdb stuff in the sbcache command so sb.py does not rely on sbslabdb.py
-import libslub.frontend.commands.gdb.sbslabdb as sbslabdb
-
-importlib.reload(sbslabdb)
+import libslub.frontend.helpers as h
 import libslub.slub.cache as c
-
-importlib.reload(c)
 
 log = logging.getLogger("libslub")
 log.trace("sb.py")
@@ -38,7 +21,7 @@ class SlabType(Enum):
 
 # XXX - some methods in this helper class could be changed to fetch information from the cache instead of fetching it from
 # memory again
-class sb:
+class Slub:
     UNSIGNED_INT = 0xFFFFFFFF
     UNSIGNED_LONG = 0xFFFFFFFFFFFFFFFF
     TYPE_CODE_HAS_FIELDS = [gdb.TYPE_CODE_STRUCT, gdb.TYPE_CODE_UNION]
@@ -80,22 +63,24 @@ class sb:
         0x00800000: "SLAB_NOLEAKTRACE",
         0x01000000: "SLAB_NOTRACK",
         0x02000000: "SLAB_FAILSLAB",
-        0x40000000: "__CMPXCHG_DOUBLE",
-        0x80000000: "__OBJECT_POISON",
+        0x04000000: "SLAB_ACCOUNT",
+        0x08000000: "SLAB_KASAN",
+        0x10000000: "SLAB_DEACTIVATED",
+        # 0x40000000: "__CMPXCHG_DOUBLE",
+        # 0x80000000: "__OBJECT_POISON",
     }
 
-    def __init__(self, SIZE_SZ=None, debugger=None, breakpoints_enabled=False):
+    def __init__(self, debugger=None, breakpoints_enabled=False):
         """
         :param debugger: the pydbg object
 
         Internally, everything is kept as gdb.Value
         """
 
-        self.SIZE_SZ = SIZE_SZ
         self.dbg = debugger
         self.breakpoints_enabled = breakpoints_enabled
         self.node_num = self._get_node_num()  # number of NUMA node
-        self.arch = self.get_arch()
+        self.arch = self.dbg.get_arch_name()
         self._check_slub()
 
         self.cpu_num = gdb.lookup_global_symbol("nr_cpu_ids").value()
@@ -120,24 +105,19 @@ class sb:
         # managed to track. This is so we can list the full-slabs contents when needed
         self.slabs_list = []
         if self.breakpoints_enabled:
-            self.breakpoints = breakpoints.breakpoints(self)
+            # We have to make sure we have supported versions, so grab the
+            # version...
+            kversion = self.dbg.get_kernel_version()
+            # HACK: At the moment we just pull out on an ubuntu version, and try
+            # to correlate it. We try to pull it out the end of the string like this:
+            # Linux version 5.15.0-27-generic (buildd@ubuntu) ... (Ubuntu 5.15.0-27.28-generic 5.15.30)
+            if "Ubuntu" in kversion and kversion.endswith(")"):
+                kversion = " ".join(kversion.split("(")[-1].split()[0:2])
+                self.breakpoints = breakpoints.breakpoints(self, kversion)
+            else:
+                self.breakpoints = None
 
         self.cache = c.cache(self)
-
-        self.set_globals(SIZE_SZ=self.SIZE_SZ)
-
-    def set_globals(self, SIZE_SZ=None):
-        if SIZE_SZ is None:
-            if self.dbg is None:
-                pu.print_error("Please specify a SIZE_SZ value or run in debugger.")
-                raise Exception("sys.exit()")
-
-            self.SIZE_SZ = self.dbg.get_size_sz()
-            if self.SIZE_SZ is None:
-                pu.print_error("error fetching size")
-                raise Exception("sys.exit()")
-        else:
-            self.SIZE_SZ = SIZE_SZ
 
     def _get_node_num(self):
         """
@@ -146,6 +126,8 @@ class sb:
         https://futurewei-cloud.github.io/ARM-Datacenter/qemu/how-to-configure-qemu-numa-nodes/
         https://elixir.bootlin.com/linux/v4.15/source/include/linux/nodemask.h#L433
         """
+
+        # TODO: This can't be gdb-specific
         node_states = gdb.lookup_global_symbol("node_states").value()
         node_mask = node_states[1]["bits"][0]  # 1 means N_ONLINE
         return bin(node_mask).count("1")
@@ -167,28 +149,6 @@ class sb:
         if allocator != "SLUB":
             raise ValueError("slabdbg does not support allocator: %s" % allocator)
 
-    def get_arch(self):
-        """Return the binary's architecture."""
-        if h2.is_alive():
-            arch = gdb.selected_frame().architecture()
-            return arch.name()
-
-        arch_str = gdb.execute("show architecture", to_string=True).strip()
-        if (
-            "The target architecture is set automatically (currently " in arch_str
-            or 'The target architecture is set to "auto" (currently ' in arch_str
-        ):
-            # architecture can be auto detected
-            arch_str = arch_str.split("(currently ", 1)[1]
-            arch_str = arch_str.split(")", 1)[0]
-        elif "The target architecture is assumed to be " in arch_str:
-            # architecture can be assumed
-            arch_str = arch_str.replace("The target architecture is assumed to be ", "")
-        else:
-            # unknown, we throw an exception to be safe
-            raise RuntimeError("Unknown architecture: {}".format(arch_str))
-        return arch_str
-
     @staticmethod
     def get_field_bitpos(type, member):
         """XXX"""
@@ -196,8 +156,8 @@ class sb:
         for field in type.fields():
             if field.name == member:
                 return field.bitpos
-            if field.type.code in sb.TYPE_CODE_HAS_FIELDS:
-                bitpos = sb.get_field_bitpos(field.type, member)
+            if field.type.code in Slub.TYPE_CODE_HAS_FIELDS:
+                bitpos = Slub.get_field_bitpos(field.type, member)
                 if bitpos is not None:
                     return field.bitpos + bitpos
         return None
@@ -217,8 +177,9 @@ class sb:
                  in the linked list pointed by head
         """
 
+        # TODO: Needs to be abstracted away from gdb
         void_p = gdb.lookup_type("void").pointer()  # type represents a void*
-        offset = sb.get_field_bitpos(type, member) // 8
+        offset = Slub.get_field_bitpos(type, member) // 8
 
         pos = head["next"].dereference()
         while pos.address != head.address:
@@ -252,23 +213,23 @@ class sb:
         # lookup_global_symbol(), see https://sourceware.org/gdb/onlinedocs/gdb/Symbols-In-Python.html
         slab_caches = gdb.lookup_global_symbol("slab_caches").value()
 
-        return sb.for_each_entry(kmem_cache_type, slab_caches, "list")
+        return Slub.for_each_entry(kmem_cache_type, slab_caches, "list")
 
     @staticmethod
     def find_slab_cache(name):
-        for slab_cache in sb.iter_slab_caches():
+        for slab_cache in Slub.iter_slab_caches():
             if slab_cache["name"].string() == name:
                 return slab_cache
         return None
 
     @staticmethod
     def get_cache_names():
-        for slab_cache in sb.iter_slab_caches():
+        for slab_cache in Slub.iter_slab_caches():
             yield slab_cache["name"].string()
 
     @staticmethod
     def get_flags_list(flags):
-        return [sb.FLAGS[x] for x in sb.FLAGS if flags & x == x]
+        return [Slub.FLAGS[x] for x in Slub.FLAGS if flags & x == x]
 
     @staticmethod
     def freelist_ptr(slab_cache, freelist, freelist_addr):
@@ -333,7 +294,7 @@ class sb:
         @return: iterator returns each object/chunk address in the slab memory region
         """
 
-        objects = int(slab["objects"]) & sb.UNSIGNED_INT
+        objects = int(slab["objects"]) & Slub.UNSIGNED_INT
         size = int(slab_cache["size"])
 
         for address in range(region_start, region_start + objects * size, size):
@@ -354,10 +315,10 @@ class sb:
 
         # Stop when we encounter a NULL pointer
         while freelist:
-            address = int(freelist) & sb.UNSIGNED_LONG
+            address = int(freelist) & Slub.UNSIGNED_LONG
             yield address
             freelist = gdb.Value(address + offset).cast(void).dereference()
-            freelist = sb.freelist_ptr(slab_cache, freelist, address + offset)
+            freelist = Slub.freelist_ptr(slab_cache, freelist, address + offset)
 
     # XXX - move to class: kmem_cache_cpu
     def get_current_slab_cache_cpu(self, slab_cache):
@@ -446,13 +407,13 @@ class sb:
         # and keep them inside of slabs_list. This lets us view full slabs that
         # would otherwise not be accessible.
         if slab_cache_name in self.watch_caches:
-            yield from sb.full_slab_from_list(self.slabs_list, slab_cache_name)
+            yield from Slub.full_slab_from_list(self.slabs_list, slab_cache_name)
 
         # Alternatively, we rely on the sbslabdb command being used by us to track certain slabs
         # associated with certain chunks address we want to track the slabs of
-        if slab_cache_name in sbslabdb.slab_db.keys():
-            yield from sb.full_slab_from_list(
-                sbslabdb.slab_db[slab_cache_name].keys(), slab_cache_name
+        if slab_cache_name in cmd_db.slab_db.keys():
+            yield from Slub.full_slab_from_list(
+                cmd_db.slab_db[slab_cache_name].keys(), slab_cache_name
             )
 
     @staticmethod
@@ -483,30 +444,7 @@ class sb:
                 yield slab.dereference()
 
     def page_addr(self, page):
-        """XXX - I dont entirely understand why this is necessary
-
-        Comes from arch/x86/include/asm/page_64_types.h
-        #define __PAGE_OFFSET_BASE_L4 _AC(0xffff888000000000, UL)
-
-        """
-        # Some configurations it stored in this variable, but it isnt queriable
-        # foo = gdb.lookup_global_symbol("__ro_after_init").value()
-        if "x86-64" in self.arch:
-            offset = (page - 0xFFFFEA0000000000) >> 6 << 0xC
-            return (
-                # 0xFFFF880000000000 + offset
-                0xFFFF888000000000
-                + offset
-            )  # this value depends on kernel version if could be 0xFFFF888000000000
-        else:
-            memstart_addr = int(self.memstart_addr) & sb.UNSIGNED_LONG
-            addr = (memstart_addr >> 6) & sb.UNSIGNED_LONG
-            addr = (addr & 0xFFFFFFFFFF000000) & sb.UNSIGNED_LONG
-            addr = (0xFFFFFFBDC0000000 - addr) & sb.UNSIGNED_LONG
-            addr = (page - addr) & sb.UNSIGNED_LONG
-            addr = (addr >> 6 << 0xC) & sb.UNSIGNED_LONG
-            addr = (addr - memstart_addr) & sb.UNSIGNED_LONG
-            return addr | 0xFFFFFFC000000000
+        return self.dbg.get_page_address(page)
 
     def get_slabs(self, slab_cache):
         """Collect a full list of all the slabs associated with a slab cache"""
@@ -553,7 +491,7 @@ class sb:
         page_addrs = []  # these are memory pages ranges holding chunks
 
         for page in pages:
-            address = int(page.address) & sb.UNSIGNED_LONG
+            address = int(page.address) & Slub.UNSIGNED_LONG
             page_addrs.append(self.page_addr(address))
 
         return page_addrs
@@ -573,9 +511,9 @@ class sb:
             page_addrs = []  # these are memory pages ranges holding chunks
 
         if not name:
-            slab_caches = sb.iter_slab_caches()
+            slab_caches = Slub.iter_slab_caches()
         else:
-            slab_cache = sb.find_slab_cache(name)
+            slab_cache = Slub.find_slab_cache(name)
             if slab_cache is None:
                 print("Slab cache '%s' not found" % name)
                 return None
@@ -587,9 +525,9 @@ class sb:
             )  # these are actual "struct page*" (gdb.Value) representing a slab
 
             for page in pages:
-                objects = int(page["objects"]) & sb.UNSIGNED_INT
+                objects = int(page["objects"]) & Slub.UNSIGNED_INT
                 size = int(slab_cache["size"])
-                address = int(page.address) & sb.UNSIGNED_LONG
+                address = int(page.address) & Slub.UNSIGNED_LONG
                 page_addr = self.page_addr(address)
                 page_end = page_addr + objects * size
                 if dict_enabled is True:
@@ -607,9 +545,9 @@ class sb:
         @return the slab address (struct page*) holding that chunk"""
 
         if not name:
-            slab_caches = sb.iter_slab_caches()
+            slab_caches = Slub.iter_slab_caches()
         else:
-            slab_cache = sb.find_slab_cache(name)
+            slab_cache = Slub.find_slab_cache(name)
             if slab_cache is None:
                 print("Slab cache '%s' not found" % name)
                 return None
@@ -621,9 +559,9 @@ class sb:
             )  # these are actual "struct page*" (gdb.Value) representing a slab
 
             for page in pages:
-                objects = int(page["objects"]) & sb.UNSIGNED_INT
+                objects = int(page["objects"]) & Slub.UNSIGNED_INT
                 size = int(slab_cache["size"])
-                address = int(page.address) & sb.UNSIGNED_LONG
+                address = int(page.address) & Slub.UNSIGNED_LONG
                 page_addr = self.page_addr(address)
                 page_end = page_addr + objects * size
                 if chunk_addr >= page_addr and chunk_addr < page_end:

@@ -1,6 +1,6 @@
 # /usr/lib/debug/boot/vmlinux-5.15.0-27-generic
 file vmlinux-5.15.0-27-generic
-source /home/user/target2204_5.15.0-27/vmlinuz-5.15.0-27-generic-gdb.py 
+source /home/user/target2204_5.15.0-27/vmlinuz-5.15.0-27-generic-gdb.py
 directory /home/user/target2204_5.15.0-27/jammy/
 set substitute-path /build/linux-HMZHpV/linux-5.15.0/ /home/user/target2204_5.15.0-27/jammy
 

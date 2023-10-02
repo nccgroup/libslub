@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "libslub"
+version = "0.1.0"
+description = "gdb script for analyzing Linux kernel slub structures"
+authors = [
+    "Aaron Adams <aaron.adams@nccgroup.com>",
+    "Cedric Halbronn <cedric.halbronn@nccgroup.com>",
+]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+hexdump = "^3.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,5 +1,5 @@
 # Note: We can't importlib.reload() this file atm because
-# otherwise we get an "super(type, obj): obj must be an instance 
+# otherwise we get an "super(type, obj): obj must be an instance
 # or subtype of type" when instanciating
 # several classes inheriting from the same ptcmd class.
 # See https://thomas-cokelaer.info/blog/2011/09/382/
@@ -9,12 +9,14 @@
 import logging
 import shlex
 from functools import wraps
+
 import gdb
 
-from libslub.frontend import printutils as pu
+import libslub.frontend.printutils as pu
 
 log = logging.getLogger("libslub")
 log.trace("sbcmd.py")
+
 
 class sbcmd(gdb.Command):
     """This is a super class with convenience methods shared by all the commands to:
@@ -24,15 +26,15 @@ class sbcmd(gdb.Command):
 
     def __init__(self, sb, name):
         self.sb = sb
-        
+
         if self.sb.dbg is None:
             pu.print_error("Please specify a debugger")
             raise Exception("sys.exit()")
 
         self.name = name
         self.old_level = None
-        self.parser = None      # ArgumentParser
-        self.description = None # Only use if not in the parser
+        self.parser = None  # ArgumentParser
+        self.description = None  # Only use if not in the parser
 
         super(sbcmd, self).__init__(name, gdb.COMMAND_DATA, gdb.COMPLETE_NONE)
 
@@ -55,20 +57,20 @@ class sbcmd(gdb.Command):
         """Change the logging level. This is changed temporarily for the duration
         of the command since reset_loglevel() is called at the end after the command is executed
         """
-        if loglevel != None:
+        if loglevel is not None:
             numeric_level = getattr(logging, loglevel.upper(), None)
             if not isinstance(numeric_level, int):
                 print("WARNING: Invalid log level: %s" % loglevel)
                 return
             self.old_level = log.getEffectiveLevel()
-            #print("old loglevel: %d" % self.old_level)
-            #print("new loglevel: %d" % numeric_level)
+            # print("old loglevel: %d" % self.old_level)
+            # print("new loglevel: %d" % numeric_level)
             log.setLevel(numeric_level)
 
     def reset_loglevel(self):
         """Reset the logging level to the previous one"""
-        if self.old_level != None:
-            #print("restore loglevel: %d" % self.old_level)
+        if self.old_level is not None:
+            # print("restore loglevel: %d" % self.old_level)
             log.setLevel(self.old_level)
             self.old_level = None
 
@@ -85,17 +87,20 @@ class sbcmd(gdb.Command):
         def _init_and_cleanup(self, arg, from_tty):
             try:
                 self.args = self.parser.parse_args(shlex.split(arg))
-            except SystemExit as e:
+            except SystemExit:
                 # If we specified an unsupported argument/option, argparse will try to call sys.exit()
                 # which will trigger such an exception, so we can safely catch it to avoid error messages
                 # in gdb
-                #h.show_last_exception()
-                #raise e
+                # h.show_last_exception()
+                # raise e
                 return
             if self.args.help:
                 self.parser.print_help()
+                # h.print_subparser_help(self.parser)
+
                 return
             self.set_loglevel(self.args.loglevel)
-            f(self, arg, from_tty) # Call actual invoke()
+            f(self, arg, from_tty)  # Call actual invoke()
             self.reset_loglevel()
+
         return _init_and_cleanup

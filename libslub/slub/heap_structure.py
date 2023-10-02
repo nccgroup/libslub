@@ -1,8 +1,8 @@
 import logging
-import struct
 
 log = logging.getLogger("libslub")
 log.trace("heap_structure.py")
+
 
 class heap_structure(object):
     """Represent a general structure. Can be inherited by any structure like malloc_chunk.
@@ -16,13 +16,12 @@ class heap_structure(object):
         self.dbg = self.sb.dbg
 
     def validate_address(self, address):
-        """Valid that a given address can actually be used as chunk address
-        """
+        """Valid that a given address can actually be used as chunk address"""
         log.trace("heap_structure.validate_address()")
 
-        if address is None or address == 0 or type(address) != int:
+        if address is None or address == 0 or not isinstance(address, int):
             print("Invalid address")
-            #raise Exception("Invalid address")
+            # raise Exception("Invalid address")
             self.initOK = False
             self.address = None
             return False

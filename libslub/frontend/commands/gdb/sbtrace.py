@@ -1,23 +1,14 @@
 from __future__ import print_function
 
-import argparse
-import struct
-import sys
 import logging
-import importlib
-import gdb
 
-import libslub.frontend.printutils as pu
-importlib.reload(pu)
-import libslub.slub.sb as sb
-importlib.reload(sb)
-import libslub.frontend.helpers as h
-importlib.reload(h)
+import libslub.commands.trace as cmd_trace
 import libslub.frontend.commands.gdb.sbcmd as sbcmd
-#importlib.reload(sbcmd)
+import libslub.frontend.helpers as h
 
 log = logging.getLogger("libslub")
 log.trace("sbtrace.py")
+
 
 class sbtrace(sbcmd.sbcmd):
     """Command to start/stop tracing object allocations for a slab cache"""
@@ -25,28 +16,7 @@ class sbtrace(sbcmd.sbcmd):
     def __init__(self, sb):
         log.debug("sbtrace.__init__()")
         super(sbtrace, self).__init__(sb, "sbtrace")
-
-        self.parser = argparse.ArgumentParser(
-            description="""Start/stop tracing object allocations for a slab cache
-
-Setup break points for the specified slab names""", 
-            add_help=False,
-            formatter_class=argparse.RawTextHelpFormatter,
-        )
-        self.parser.add_argument(
-            "-h", "--help", dest="help", action="store_true", default=False,
-            help="Show this help"
-        )
-        # allows to enable a different log level during development/debugging
-        self.parser.add_argument(
-            "--loglevel", dest="loglevel", default=None,
-            help=argparse.SUPPRESS
-        )
-
-        self.parser.add_argument(
-            "names", nargs="*", default=[],
-            help="Slab names (e.g. 'kmalloc-1k')"
-        )
+        self.parser = cmd_trace.generate_parser()
 
     @h.catch_exceptions
     @sbcmd.sbcmd.init_and_cleanup
@@ -56,17 +26,4 @@ Setup break points for the specified slab names""",
         """
 
         log.debug("sbtrace.invoke()")
-
-        for name in self.args.names:
-            slab_cache = sb.sb.find_slab_cache(name)
-            if slab_cache is None:
-                print("Slab cache '%s' not found" % name)
-                return
-
-            if name in self.sb.trace_caches:
-                print("Stopped tracing slab cache '%s'" % name)
-                self.sb.trace_caches.remove(name)
-            else:
-                print("Started tracing slab cache '%s'" % name)
-                self.sb.trace_caches.append(name)
-            self.sb.breakpoints.update_breakpoints()
+        cmd_trace.slub_trace(self.sb, self.args)

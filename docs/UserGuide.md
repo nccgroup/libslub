@@ -22,10 +22,10 @@
 The `sbhelp` command lists all the commands provided by libslub:
 
 ```
-(gdb) sbhelp 
+(gdb) sbhelp
 sbhelp              List all libslub commands
 sbcache             Print the metadata and contents of one or all slab cache(s)
-sbobject            Print the metadata and contents of one or more objects/chunks 
+sbobject            Print the metadata and contents of one or more objects/chunks
 sblist              Show information about all the slab caches on the system
 sbmeta              Handle metadata associated with object/chunk addresses
 sbslabdb            Handle saving slab addresses associated with object/chunk addresses
@@ -82,7 +82,7 @@ generic optional arguments:
   -H HIGHLIGHT_ADDRESSES, --highlight-addresses HIGHLIGHT_ADDRESSES
                         Comma separated list of addresses for objects/chunks we want to highlight in the output
   -G HIGHLIGHT_METADATA, --highlight-metadata HIGHLIGHT_METADATA
-                        Comma separated list of metadata (previously stored with the 'sbmeta' command) 
+                        Comma separated list of metadata (previously stored with the 'sbmeta' command)
                         for objects/chunks we want to highlight in the output
   --highlight-only      Only show the highlighted objects/chunks (instead of just '*' them)
   --use-cache           Do not fetch any internal slab data if you know they haven't changed since
@@ -94,7 +94,7 @@ generic optional arguments:
   --match-only          Only show the matched chunks (instead of just show match/no match)
   --skip-header         Don't include chunk header contents in search results
   --depth SEARCH_DEPTH  How far into each chunk to search, starting from chunk header address
-  --cmds COMMANDS       Semi-colon separated list of debugger commands to be executed for each chunk that is displayed 
+  --cmds COMMANDS       Semi-colon separated list of debugger commands to be executed for each chunk that is displayed
                         ('@' is replaced by the chunk address)
   --object-info         Show object info such as its slab/cpu/node/etc. (summary representation)
   -o, --address-offset  Print offsets from the first printed chunk instead of addresses
@@ -107,7 +107,7 @@ generic optional arguments:
 To show all the slab caches:
 
 ```
-(gdb) sblist   
+(gdb) sblist
 name                    objs inuse slabs size obj_size objs_per_slab pages_per_slab
 AF_VSOCK                  12     2     1 1280     1248            12              4
 ext4_groupinfo_4k          0     0     0  192      192            21              1
@@ -172,7 +172,7 @@ trace_event_file         782   656    17   88       88            46            
 To print the main slab information for the `kmalloc-1k` slab cache:
 
 ```
-(gdb) sbcache -n kmalloc-1k --main-slab                   
+(gdb) sbcache -n kmalloc-1k --main-slab
 struct kmem_cache @ 0xffff888100041b00 {
   name        = kmalloc-1k
   flags       = __CMPXCHG_DOUBLE
@@ -236,7 +236,7 @@ struct kmem_cache @ 0xffff888100041b00 {
 To print the objects on the lockless freelist associated with the main slab for the `kmalloc-1k` slab cache and only for the first CPU (index 0):
 
 ```
-(gdb) sbcache -n kmalloc-1k --main-slab --cpu 0 --show-lockless-freelist                 
+(gdb) sbcache -n kmalloc-1k --main-slab --cpu 0 --show-lockless-freelist
 struct kmem_cache @ 0xffff888100041b00 {
   name        = kmalloc-1k
   flags       = __CMPXCHG_DOUBLE
@@ -273,7 +273,7 @@ And to show a short version with only the object allocations:
 To print the objects on the partial slabs for the `kmalloc-1k` slab cache and only for the first CPU (index 0):
 
 ```
-(gdb) sbcache -n kmalloc-1k --partial-slab --cpu 0                              
+(gdb) sbcache -n kmalloc-1k --partial-slab --cpu 0
 struct kmem_cache @ 0xffff888100041b00 {
   name        = kmalloc-1k
   flags       = __CMPXCHG_DOUBLE
@@ -320,14 +320,14 @@ Fetched in 45s
 To check if an address is a valid object address, in a specific slab cache:
 
 ```
-(gdb) sbobject -n kmalloc-1k 0xffff88801ae1c000 
+(gdb) sbobject -n kmalloc-1k 0xffff88801ae1c000
 0xffff88801ae1c000 F (region start)
 ```
 
 To show 4 objects adjacent to a specific address:
 
 ```
-(gdb) sbobject -n kmalloc-1k 0xffff88801ae1c000 -c 4        
+(gdb) sbobject -n kmalloc-1k 0xffff88801ae1c000 -c 4
 0xffff88801ae1c000 F (region start)
 0xffff88801ae1c400 M
 0xffff88801ae1c800 F
@@ -554,7 +554,7 @@ Then we can show the contents of the full slabs:
 In order to speed up the execution of commands, libslub caches the SLUB structures as well as the addresses of the objects when you execute certain commands.
 
 ```
-(gdb) sbobject 0xffff888003e50400        
+(gdb) sbobject 0xffff888003e50400
 Fetching all slab caches, this will take a while... (use -n to specify a slab cache)
 Fetched in 45s
 0xffff888003e50400 M
@@ -563,7 +563,7 @@ Fetched in 45s
 That being said, by default, it won't use the cache, to avoid any misleading info:
 
 ```
-(gdb) sbobject 0xffff888003e50400        
+(gdb) sbobject 0xffff888003e50400
 Fetching all slab caches, this will take a while... (use -n to specify a slab cache)
 Fetched in 45s
 0xffff888003e50400 M
@@ -581,7 +581,7 @@ If you want to use the cache, when you know nothing has changed since the last c
 ## SlabDbg
 
 
-libslub is heavily based on other tools like 
+libslub is heavily based on other tools like
 [SlabDbg](https://github.com/Kyle-Kyle/slabdbg/) even though a lot has been
 changed or added.
 

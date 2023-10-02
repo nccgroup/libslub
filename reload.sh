@@ -1,7 +1,6 @@
 #!/bin/bash
 
-usage()
-{
+usage() {
     echo "Usage:"
     echo "./reload.sh [--disable] [--enable] [--help]"
     exit
@@ -9,24 +8,23 @@ usage()
 
 ENABLE="NO"
 DISABLE="NO"
-while [ $# -gt 0 ]
-do
+while [ $# -gt 0 ]; do
     key="$1"
 
     case $key in
-        -e|--enable)
-        ENABLE="YES"
-        ;;
-        -d|--disable)
-        DISABLE="YES"
-        ;;
-        -h|--help)
-        usage
-        ;;
+        -e | --enable)
+            ENABLE="YES"
+            ;;
+        -d | --disable)
+            DISABLE="YES"
+            ;;
+        -h | --help)
+            usage
+            ;;
         *)
-        echo "Unknown option"
-        usage
-        ;;
+            echo "Unknown option"
+            usage
+            ;;
     esac
     shift # past argument or value
 done

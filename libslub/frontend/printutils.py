@@ -121,14 +121,15 @@ def colorize(x, color):
 
 
 def terminateWith(x, color):
-    return re.sub('\x1b\\[0m', NORMAL + color, x)
+    return re.sub("\x1b\\[0m", NORMAL + color, x)
 
 
-def print_debug(s, end='\n'):
+def print_debug(s, end="\n"):
     debug = "[#] {0}".format(s)
     color = LIGHT_PURPLE
     debug = colorize(debug, color)
     print(debug, end=end)
+
 
 def print_error(s, end="\n"):
     error = "[!] {0}".format(s)
@@ -143,10 +144,11 @@ def print_title(s, end="\n"):
 
 def print_title_wide(s, end="\n"):
     width = 80
-    lwidth = (width-len(s))/2
-    rwidth = (width-len(s))/2
-    title = '{:=<{lwidth}}{}{:=<{rwidth}}'.format(
-            '', s, '', lwidth=lwidth, rwidth=rwidth)
+    lwidth = (width - len(s)) / 2
+    rwidth = (width - len(s)) / 2
+    title = "{:=<{lwidth}}{}{:=<{rwidth}}".format(
+        "", s, "", lwidth=lwidth, rwidth=rwidth
+    )
     print(color_title(title), end=end)
 
 
@@ -169,6 +171,7 @@ def print_value(s, end=""):
 def color_header(s):
     color = YELLOW
     return colorize(s, color)
+
 
 def color_title(s):
     color = GREEN + UNDERLINE
