@@ -128,8 +128,11 @@ class Slub:
         """
 
         # TODO: This can't be gdb-specific
-        node_states = gdb.lookup_global_symbol("node_states").value()
-        node_mask = node_states[1]["bits"][0]  # 1 means N_ONLINE
+        node_states = gdb.lookup_global_symbol("node_states")
+        if node_states is None:
+            return 1
+
+        node_mask = node_states.value()[1]["bits"][0]  # 1 means N_ONLINE
         return bin(node_mask).count("1")
 
     def _check_slub(self):
@@ -454,8 +457,20 @@ class Slub:
         cpu_cache_list = self.get_all_slab_cache_cpus(slab_cache)
 
         for cpu_id, cpu_cache in enumerate(cpu_cache_list):
-            if cpu_cache["page"]:
-                slab = cpu_cache["page"].dereference()
+            try:
+                cpu_cache["page"]
+                slab_struct_name = "page"
+            except Exception:
+                try:
+                    cpu_cache["slab"]
+                    slab_struct_name = "slab"
+                except Exception:
+                    raise Exception(
+                        "Could not find the slab structure in kmem_cache_cpu. File a bug."
+                    )
+
+            if cpu_cache[slab_struct_name]:
+                slab = cpu_cache[slab_struct_name].dereference()
                 pages.append(slab)
 
             if cpu_cache["partial"]:

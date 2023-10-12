@@ -137,6 +137,7 @@ class page(hs.heap_structure):
             txt = " " * indent
             if name:
                 txt += "{:8} = ".format(name)
+            # TODO: If the page structure has been changed to slab, we need to change the naming here
             if self.is_main_slab:
                 title = "struct page @ 0x%x {" % (self.address)
             else:

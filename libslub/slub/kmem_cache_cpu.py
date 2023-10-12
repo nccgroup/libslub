@@ -49,14 +49,37 @@ class kmem_cache_cpu(hs.heap_structure):
 
         # the slab from which we are allocating for that cpu core
         self.main_slab = None
-        if self.value["page"]:
+        # The structure naming changed in
+        # https://github.com/torvalds/linux/commit/bb192ed9aa7191a5d65548f82c42b6750d65f569
+        try:
+            self.value["page"]
+            slab_struct_name = "page"
+        except Exception:
+            try:
+                self.value["slab"]
+                slab_struct_name = "slab"
+            except Exception:
+                raise Exception(
+                    "Could not find the slab structure in kmem_cache_cpu. File a bug."
+                )
+
+        # if "page" in self.value.fields():
+        #     slab_struct_name = "page"
+        # elif "slab" in self.value.fields():
+        #     slab_struct_name = "slab"
+        # else:
+        #     raise Exception(
+        #         "Could not find the slab structure in kmem_cache_cpu. File a bug."
+        #     )
+
+        if self.value[slab_struct_name]:
             self.main_slab = p.page(
                 self.sb,
                 self.kmem_cache,
                 self,
                 None,
                 sb.SlabType.MAIN_SLAB,
-                value=self.value["page"].dereference(),
+                value=self.value[slab_struct_name].dereference(),
                 is_main_slab=True,
             )
 

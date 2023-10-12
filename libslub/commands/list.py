@@ -81,9 +81,23 @@ def slub_list(sb, args):
         cpu_cache = sb.get_current_slab_cache_cpu(slab_cache)
 
         # kmem_cache_cpu->page == The slab from which we are allocating
-        # struct page {: https://elixir.bootlin.com/linux/v5.15/source/include/linux/mm_types.h#L70
-        if cpu_cache["page"]:
-            cnt_objs = cnt_inuse = int(cpu_cache["page"]["objects"]) & sb.UNSIGNED_INT
+        # struct page {:
+        # https://elixir.bootlin.com/linux/v5.15/source/include/linux/mm_types.h#L70
+        try:
+            cpu_cache["page"]
+            slab_struct_name = "page"
+        except Exception:
+            try:
+                cpu_cache["slab"]
+                slab_struct_name = "slab"
+            except Exception:
+                raise Exception(
+                    "Could not find the slab structure in kmem_cache_cpu. File a bug."
+                )
+        if cpu_cache[slab_struct_name]:
+            cnt_objs = cnt_inuse = (
+                int(cpu_cache[slab_struct_name]["objects"]) & sb.UNSIGNED_INT
+            )
             # kmem_cache_cpu->freelist == Pointer to next available object
             if cpu_cache["freelist"]:
                 cnt_inuse -= len(
