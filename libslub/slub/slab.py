@@ -14,7 +14,7 @@ importlib.reload(obj)
 import libslub.frontend.commands.gdb.sbobject as sbobject
 importlib.reload(sbobject)
 
-class page(hs.heap_structure):
+class slab(hs.heap_structure):
     """python representation of a struct page
     
     struct page {: https://elixir.bootlin.com/linux/v5.15/source/include/linux/mm_types.h#L70
@@ -29,9 +29,9 @@ class page(hs.heap_structure):
         :param address: address for a page where to read the structure's content from the debugger (not supported yet)
         """
 
-        super(page, self).__init__(sb)
+        super(slab, self).__init__(sb)
 
-        # page structure's fields can be looked up directly from the gdb.Value
+        # slab structure's fields can be looked up directly from the gdb.Value
         self.value = value # gdb.Value representing the page
         self.kmem_cache = kmem_cache # kmem_cache Python object
         self.kmem_cache_cpu = kmem_cache_cpu # kmem_cache_cpu Python object or None

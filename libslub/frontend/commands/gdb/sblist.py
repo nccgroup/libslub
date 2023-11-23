@@ -65,7 +65,6 @@ Equivalent to "cat /proc/slabinfo" in userland.""",
 
         log.debug("sblist.invoke()")
         
-        page_type = gdb.lookup_type("struct page")
 
         print("name                    objs inuse slabs size obj_size objs_per_slab pages_per_slab")
         
@@ -81,17 +80,21 @@ Equivalent to "cat /proc/slabinfo" in userland.""",
             if self.args.kmalloc and name not in sb.sb.kmalloc_caches:
                 continue
             
+            
             size = int(slab_cache["size"]) # The size of an object including metadata
             obj_size = int(slab_cache["object_size"]) # The size of an object without metadata
             cnt_objs, cnt_inuse, cnt_slabs = 0, 0, 0
 
             # Get the gdb.Value representing the current kmem_cache_cpu
             cpu_cache = self.sb.get_current_slab_cache_cpu(slab_cache)
+            slab_or_page = self.sb.kcl.slab_or_page
+            slab_type = self.sb.kcl.slab_type
+            slab_list = self.sb.kcl.slab_list
             
             # kmem_cache_cpu->page == The slab from which we are allocating
             # struct page {: https://elixir.bootlin.com/linux/v5.15/source/include/linux/mm_types.h#L70
-            if cpu_cache["page"]: 
-                cnt_objs = cnt_inuse = int(cpu_cache["page"]["objects"]) & self.sb.UNSIGNED_INT
+            if cpu_cache[slab_or_page]: 
+                cnt_objs = cnt_inuse = int(cpu_cache[slab_or_page]["objects"]) & self.sb.UNSIGNED_INT
                 # kmem_cache_cpu->freelist == Pointer to next available object
                 if cpu_cache["freelist"]:
                     cnt_inuse -= len(
@@ -112,7 +115,7 @@ Equivalent to "cat /proc/slabinfo" in userland.""",
             # kmem_cache->node == The slab lists for all objects
             # struct kmem_cache_node {: https://elixir.bootlin.com/linux/v5.15/source/mm/slab.h#L533
             node_cache = slab_cache["node"].dereference().dereference()
-            for slab in self.sb.for_each_entry(page_type, node_cache["partial"], "lru"):
+            for slab in self.sb.for_each_entry(slab_type, node_cache["partial"], slab_list):
                 cnt_objs += int(slab["objects"]) & self.sb.UNSIGNED_INT
                 cnt_inuse += int(slab["inuse"]) & self.sb.UNSIGNED_INT
                 cnt_slabs += 1
