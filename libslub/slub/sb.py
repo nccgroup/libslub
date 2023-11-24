@@ -23,7 +23,7 @@ import libslub.frontend.commands.gdb.sbslabdb as sbslabdb
 importlib.reload(sbslabdb)
 import libslub.slub.cache as c
 
-import libslub.compatibility.kernel_compatibility_layer as kcl 
+import libslub.compatibility.kernel_compat_layer as kcl 
 importlib.reload(kcl)
 
 importlib.reload(c)

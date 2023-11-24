@@ -17,6 +17,8 @@ import libslub.pydbg.debugger as d
 importlib.reload(d)
 import libslub.pydbg.pygdbpython as pgp
 importlib.reload(pgp)
+import libslub.compatibility.kernel_compat_layer as kcl
+importlib.reload(kcl)
 
 
 class pyslab:
@@ -39,8 +41,7 @@ class pyslab:
             breakpoints_enabled = False
             
         # read the current kernel version using gdb
-        version_string = gdb.parse_and_eval("(char *)linux_banner").string()
-        release = re.search(r'(\d+\.\d+\.\d+)', version_string).group(1)
+        release = kcl.get_kernel_version()
 
         self.sb = sb.sb(debugger=self.dbg, breakpoints_enabled=breakpoints_enabled, release=release)
 
