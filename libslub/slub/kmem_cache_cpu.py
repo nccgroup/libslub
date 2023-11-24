@@ -8,7 +8,7 @@ import libslub.slub.heap_structure as hs
 importlib.reload(hs)
 import libslub.slub.sb as sb
 importlib.reload(sb)
-import libslub.slub.page as p
+import libslub.slub.slab as p
 importlib.reload(p)
 import libslub.slub.obj as obj
 importlib.reload(obj)
@@ -40,6 +40,7 @@ class kmem_cache_cpu(hs.heap_structure):
         self.init(cpu_id)
 
     def init(self, cpu_id):
+        
 
         # our own abstraction fields
         self.cpu_id = cpu_id # CPU index in the kmem_cache
@@ -52,12 +53,14 @@ class kmem_cache_cpu(hs.heap_structure):
             o = obj.obj(self.sb, address, self.kmem_cache, self, None, None, inuse=False)
             self.freelist.append(o)
 
+        page_or_slab = self.sb.kcl.slab_or_page
+
         # the slab from which we are allocating for that cpu core
         self.main_slab = None
-        if self.value["page"]:
-            self.main_slab = p.page(self.sb, self.kmem_cache, self, None, sb.SlabType.MAIN_SLAB, value=self.value["page"].dereference(), is_main_slab=True)
+        if self.value[page_or_slab]:
+            self.main_slab = p.slab(self.sb, self.kmem_cache, self, None, sb.SlabType.MAIN_SLAB, value=self.value[page_or_slab].dereference(), is_main_slab=True)
 
-        # update the main freelist's objects "page"
+        # update the main freelist's objects "slab"
         for o in self.freelist:
             o.page = self.main_slab
 
@@ -73,7 +76,7 @@ class kmem_cache_cpu(hs.heap_structure):
         slab_ptr = self.value["partial"]
         while slab_ptr:
             slab = slab_ptr.dereference()
-            partial_slab = p.page(self.sb, self.kmem_cache, self, None, sb.SlabType.PARTIAL_SLAB, index=slab_index, count=slab_count, value=slab)
+            partial_slab = p.slab(self.sb, self.kmem_cache, self, None, sb.SlabType.PARTIAL_SLAB, index=slab_index, count=slab_count, value=slab)
             self.partial_slabs.append(partial_slab)
             slab_ptr = slab["next"]
             slab_index += 1
@@ -153,8 +156,9 @@ class kmem_cache_cpu(hs.heap_structure):
                     object_info=cmd.args.object_info,
                 )
 
+        page_or_slab = self.sb.kcl.slab_or_page
         if cmd.output_filtered is False or cmd.args.main_slab is True:
-            self.main_slab.print(name="page", indent=indent+2, cmd=cmd)
+            self.main_slab.print(name=page_or_slab, indent=indent+2, cmd=cmd)
         if cmd.output_filtered is False or cmd.args.partial_slab is True:
             for partial_slab in self.partial_slabs:
                 partial_slab.print(name="partial", indent=indent+2, cmd=cmd)

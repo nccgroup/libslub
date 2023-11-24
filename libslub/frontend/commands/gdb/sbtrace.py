@@ -13,6 +13,8 @@ import libslub.slub.sb as sb
 importlib.reload(sb)
 import libslub.frontend.helpers as h
 importlib.reload(h)
+import libslub.frontend.helpers2 as h2
+importlib.reload(h2)
 import libslub.frontend.commands.gdb.sbcmd as sbcmd
 #importlib.reload(sbcmd)
 
@@ -56,7 +58,7 @@ Setup break points for the specified slab names""",
         """
 
         log.debug("sbtrace.invoke()")
-
+        
         for name in self.args.names:
             slab_cache = sb.sb.find_slab_cache(name)
             if slab_cache is None:
