@@ -14,7 +14,13 @@ class KernelCompatibilityLayer:
         self.release = release
         if self.release is None:
             self.release = get_kernel_version()
-        if self.release < "5.17":
+        major_number, minor_number = self.release.split(".")[:2]
+        kernel_version = "5.17"
+        current_release = self.release
+        if major_number == kernel_version.split(".")[0]:
+            kernel_version = int(kernel_version.split(".")[1])
+            current_release = int(minor_number)
+        if current_release < kernel_version:
             self.slab_or_page = "page"
             self.slab_type = gdb.lookup_type("struct page")
             self.slab_list = "lru"
