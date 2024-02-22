@@ -165,7 +165,7 @@ class AllocateSlabReturned(gdb.Breakpoint):
         log.debug("AllocateSlabReturned.stop()")
         slab_cache = gdb.selected_frame().read_var("s")
         name = slab_cache["name"].string()
-        addr = gdb.selected_frame().read_var("page")
+        addr = gdb.selected_frame().read_var(self.sb.kcl.slab_or_page)
         addr = int(addr) & sb.sb.UNSIGNED_LONG
         self.sb.notify_slab_alloc(name, addr)
         return False # continue execution

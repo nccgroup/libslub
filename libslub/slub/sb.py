@@ -23,6 +23,9 @@ import libslub.frontend.commands.gdb.sbslabdb as sbslabdb
 importlib.reload(sbslabdb)
 import libslub.slub.cache as c
 
+import libslub.compatibility.kernel_compat_layer as kcl 
+importlib.reload(kcl)
+
 importlib.reload(c)
 
 log = logging.getLogger("libslub")
@@ -84,7 +87,7 @@ class sb:
         0x80000000: "__OBJECT_POISON",
     }
 
-    def __init__(self, SIZE_SZ=None, debugger=None, breakpoints_enabled=False):
+    def __init__(self, SIZE_SZ=None, debugger=None, breakpoints_enabled=False, release=None):
         """
         :param debugger: the pydbg object
 
@@ -93,10 +96,13 @@ class sb:
 
         self.SIZE_SZ = SIZE_SZ
         self.dbg = debugger
+        self.release = release
         self.breakpoints_enabled = breakpoints_enabled
         self.node_num = self._get_node_num()  # number of NUMA node
         self.arch = self.get_arch()
         self._check_slub()
+        
+        self.kcl = kcl.KernelCompatibilityLayer(self.release)
 
         self.cpu_num = gdb.lookup_global_symbol("nr_cpu_ids").value()
         self.per_cpu_offset = gdb.lookup_global_symbol("__per_cpu_offset").value()
@@ -470,7 +476,9 @@ class sb:
         (implying it's not associated with this specific CPU at the moment?),
         and the name matches whatever cache we are interested in
         """
-        page_type = gdb.lookup_type("struct page").pointer()
+        kcl = kcl.KernelCompatibilityLayer()
+        slab_or_page = kcl.slab_or_page
+        page_type = gdb.lookup_type("struct {}".format(slab_or_page)).pointer()
         for addr in slabs_list:
             slab = gdb.Value(addr).cast(page_type)
             slab_cache = slab["slab_cache"]
@@ -514,10 +522,12 @@ class sb:
         pages = []  # these are actual "struct page*" (gdb.Value) representing a slab
 
         cpu_cache_list = self.get_all_slab_cache_cpus(slab_cache)
+        slab_or_page = self.kcl.slab_or_page
+        slab_list = self.kcl.slab_list
 
         for cpu_id, cpu_cache in enumerate(cpu_cache_list):
-            if cpu_cache["page"]:
-                slab = cpu_cache["page"].dereference()
+            if cpu_cache[slab_or_page]:
+                slab = cpu_cache[slab_or_page].dereference()
                 pages.append(slab)
 
             if cpu_cache["partial"]:
@@ -529,8 +539,8 @@ class sb:
 
         for node_id in range(self.node_num):
             node_cache = slab_cache["node"][node_id]
-            page = gdb.lookup_type("struct page")
-            partials = list(self.for_each_entry(page, node_cache["partial"], "lru"))
+            slab = gdb.lookup_type("struct {}".format(slab_or_page)).pointer()
+            partials = list(self.for_each_entry(slab, node_cache["partial"], slab_list))
             if partials:
                 for slab in partials:
                     pages.append(slab)

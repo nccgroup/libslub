@@ -13,6 +13,8 @@ import libslub.slub.sb as sb
 importlib.reload(sb)
 import libslub.frontend.helpers as h
 importlib.reload(h)
+import libslub.frontend.helpers2 as h2
+importlib.reload(h2)
 import libslub.frontend.commands.gdb.sbcmd as sbcmd
 #importlib.reload(sbcmd)
 

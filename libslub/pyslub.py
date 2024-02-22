@@ -2,6 +2,7 @@ import os
 import sys
 import importlib
 import gdb
+import re 
 
 try:
     import configparser  # py3
@@ -16,6 +17,9 @@ import libslub.pydbg.debugger as d
 importlib.reload(d)
 import libslub.pydbg.pygdbpython as pgp
 importlib.reload(pgp)
+import libslub.compatibility.kernel_compat_layer as kcl
+importlib.reload(kcl)
+
 
 class pyslab:
     """Entry point of libslub"""
@@ -35,8 +39,11 @@ class pyslab:
             breakpoints_enabled = config.getboolean("Slab", "breakpoints_enabled")
         except configparser.NoOptionError:
             breakpoints_enabled = False
+            
+        # read the current kernel version using gdb
+        release = kcl.get_kernel_version()
 
-        self.sb = sb.sb(debugger=self.dbg, breakpoints_enabled=breakpoints_enabled)
+        self.sb = sb.sb(debugger=self.dbg, breakpoints_enabled=breakpoints_enabled, release=release)
 
         # Register GDB commands
         fg.frontend_gdb(self.sb)
