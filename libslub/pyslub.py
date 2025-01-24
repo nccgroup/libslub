@@ -30,7 +30,7 @@ class pyslab:
         debugger = pgp.pygdbpython()
         self.dbg = d.pydbg(debugger)
 
-        config = configparser.SafeConfigParser()
+        config = configparser.ConfigParser()
         path = os.path.abspath(os.path.dirname(__file__))
         config_path = os.path.join(path, "libslub.cfg")
         config.read(config_path)
